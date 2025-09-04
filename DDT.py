@@ -3,57 +3,17 @@ import torch.nn as nn
 
 
 class DDT(nn.Module):
-    """Fast implementation of soft decision tree in PyTorch.
-
-    Parameters
-    ----------
-    input_dim : int
-      The number of input dimensions.
-    output_dim : int
-      The number of output dimensions. For example, for a multi-class
-      classification problem with `K` classes, it is set to `K`.
-    depth : int, default=5
-      The depth of the soft decision tree. Since the soft decision tree is
-      a full binary tree, setting `depth` to a large value will drastically
-      increases the training and evaluating cost.
-    lamda : float, default=1e-3
-      The coefficient of the regularization term in the training loss. Please
-      refer to the paper on the formulation of the regularization term.
-    use_cuda : bool, default=False
-      When set to `True`, use GPU to fit the model. Training a soft decision
-      tree using CPU could be faster considering the inherent data forwarding
-      process.
-
-    Attributes
-    ----------
-    internal_node_num_ : int
-      The number of internal nodes in the tree. Given the tree depth `d`, it
-      equals to :math:`2^d - 1`.
-    leaf_node_num_ : int
-      The number of leaf nodes in the tree. Given the tree depth `d`, it equals
-      to :math:`2^d`.
-    penalty_list : list
-      A list storing the layer-wise coefficients of the regularization term.
-    inner_nodes : torch.nn.Sequential
-      A container that simulates all internal nodes in the soft decision tree.
-      The sigmoid activation function is concatenated to simulate the
-      probabilistic routing mechanism.
-    leaf_nodes : torch.nn.Linear
-      A `nn.Linear` module that simulates all leaf nodes in the tree.
-    """
 
     def __init__(
             self,
             input_dim,
-            output_dim,
-            lamda=1e-3,
+            training_size,
             use_cuda=False):
         super(DDT, self).__init__()
 
         self.input_dim = input_dim
-        self.output_dim = output_dim
+        self.output_dim = training_size
 
-        self.lamda = lamda
         self.device = torch.device("cuda" if use_cuda else "cpu")
 
         self._validate_parameters()
@@ -61,21 +21,15 @@ class DDT(nn.Module):
         self.internal_node_num_ = self.output_dim - 1
         self.leaf_node_num_ = self.output_dim
 
-        # Different penalty coefficients for nodes in different layers
-        #self.penalty_list = [
-        #    self.lamda * (2 ** (-depth)) for depth in range(0, self.depth)
-        #]
-
-        # Initialize internal nodes and leaf nodes, the input dimension on
-        # internal nodes is added by 1, serving as the bias.
         self.inner_nodes = nn.Sequential(
             nn.Linear(self.input_dim + 1, self.internal_node_num_, bias=False),
             nn.Sigmoid(),
+            nn.Linear(self.internal_node_num_, self.output_dim, bias=False)
         )
 
-        self.leaf_nodes = nn.Linear(self.leaf_node_num_,
-                                    self.output_dim,
-                                    bias=False)
+        # self.leaf_nodes = nn.Linear(self.leaf_node_num_,
+        #                             self.output_dim,
+        #                             bias=False)
 
     def forward(self, X, is_training_data=False):
         _mu, _penalty = self._forward(X)
