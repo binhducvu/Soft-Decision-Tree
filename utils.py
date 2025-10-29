@@ -92,9 +92,10 @@ def simulate_data(n=1000, d=10, rho=0.9, beta=None, seed=0):
     rng = np.random.default_rng(seed)
     sigma = toeplitz(d, rho)
 
-    # default beta if not provided
+    # if you give no beta, then beta is random. This can be important, as beta represents the contribution of
+    # X signals towards y
     if beta is None:
-        beta = np.concatenate([np.zeros(d // 2), np.ones(d // 2)])
+        beta = rng.uniform(-1, 1, size=d)
     beta = np.asarray(beta)
 
     # sample X
