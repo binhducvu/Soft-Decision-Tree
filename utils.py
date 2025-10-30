@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 from scipy.sparse import csr_matrix, diags
+import torch
 
 def make_adjacency(rf, X):
     leafIDs = rf.apply(X)
@@ -109,3 +110,19 @@ def simulate_data(n=1000, d=10, rho=0.9, beta=None, seed=0):
     y = rng.binomial(1, p)
 
     return X, y, beta, sigma
+
+class TabularDataset:
+    def __init__(self, X, y):
+        """
+        X: DataFrame (features)
+        y: numpy array (labels)
+        """
+        self.X = torch.tensor(X.values, dtype=torch.float32)
+        self.y = torch.tensor(y, dtype=torch.float32)
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]
+    
